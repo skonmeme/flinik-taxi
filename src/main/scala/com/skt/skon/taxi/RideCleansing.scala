@@ -19,7 +19,7 @@ import org.apache.flink.streaming.api.scala._
 object RideCleansing {
 
   def main(args: Array[String]): Unit = {
-    // data stream speed
+    // data stream speed: 10 times faster
     val servingSpeedFactor = 10
 
     // set up the streaming execution environment
