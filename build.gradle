@@ -8,6 +8,7 @@ plugins {
     id 'maven'
     id 'idea'
     id "com.github.johnrengelman.shadow" version "4.0.4"
+    id "com.github.maiflai.scalatest" version "0.23"
 }
 
 repositories {
@@ -44,6 +45,9 @@ dependencies {
     compile group: 'org.influxdb', name: 'influxdb-java', version: '2.14'
     
     testCompile group: 'org.scalatest', name: "scalatest_$scalaVersion", version: '3.0.5'
+    testCompile group: 'junit', name: 'junit', version: '4.11'
+
+    testRuntime group: 'org.pegdown', name: 'pegdown', version :'1.4.2'
 }
 
 group = 'com.skt.skon'
@@ -53,4 +57,8 @@ sourceCompatibility = '1.8'
 
 tasks.withType(JavaCompile) {
     options.encoding = 'UTF-8'
+}
+
+test {
+    maxParallelForks = 1
 }

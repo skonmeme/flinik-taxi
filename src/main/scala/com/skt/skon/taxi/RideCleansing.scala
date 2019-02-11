@@ -19,17 +19,17 @@ import org.apache.flink.streaming.api.scala._
 object RideCleansing {
 
   def main(args: Array[String]): Unit = {
-    // data stream speed: 10 times faster
-    val servingSpeedFactor = 10
+    val maxDelay = 60 // events are out of order by max 60 seconds
+    val servingSpeedFactor = 600   // events of 10 minutes are served in 1 second
 
     // set up the streaming execution environment
     val env = StreamExecutionEnvironment.getExecutionEnvironment
 
-    val cleanRideStream = env
+    val cleansedRideStream = env
       .addSource(new TaxiRideSource("/Users/skon/Documents/src/skonmeme/da/nycTaxiRides.gz", servingSpeedFactor))
       .filter(ride => GeoUtils.isInNYC(ride.startLon, ride.startLat) && GeoUtils.isInNYC(ride.endLon, ride.endLat))
 
-    cleanRideStream.print
+    cleansedRideStream.print
 
     // execute program
     env.execute("TaxiRide Cleansing")
