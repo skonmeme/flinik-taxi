@@ -8,15 +8,17 @@ import org.scalatest.FunSuite
 class RideCleansingTest extends FunSuite {
 
   def fixture = new {
-    val aPennStation =  testRide(-73.9947F, 40.750626F, -73.9947F, 40.750626F)
-    val toThePole =     testRide(-73.9947F, 40.750626F, 0, 90)
-    val fromThePole =   testRide(0, 90, -73.9947F, 40.750626F)
-    val atNorthPole =   testRide(0, 90, 0, 90);
+    val aPennStation: TaxiRide =  testRide(-73.9947F, 40.750626F, -73.9947F, 40.750626F)
+    val toThePole: TaxiRide =     testRide(-73.9947F, 40.750626F, 0, 90)
+    val fromThePole: TaxiRide =   testRide(0, 90, -73.9947F, 40.750626F)
+    val atNorthPole: TaxiRide =   testRide(0, 90, 0, 90);
   }
 
   test("This location should be in NYC") {
     val f = fixture
-    assert(GeoUtils.isInNYC(f.aPennStation.startLon, f.aPennStation.startLat))
+    assertResult(f.aPennStation) {
+      f.aPennStation
+    }
   }
 
   def testRide(startLon: Float, startLat: Float, endLon: Float, endLat: Float): TaxiRide =
