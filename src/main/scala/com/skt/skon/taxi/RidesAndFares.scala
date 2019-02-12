@@ -3,7 +3,7 @@ package com.skt.skon.taxi
 import com.skt.skon.taxi.datatypes.{TaxiFare, TaxiRide}
 import com.skt.skon.taxi.sources.{CheckpointedTaxiFareSource, CheckpointedTaxiRideSource}
 import com.skt.skon.taxi.utils.TaxiExecutionEnvironment
-import org.apache.flink.api.common.state.{ValueState, ValueStateDescriptor}
+import org.apache.flink.api.common.state.ValueStateDescriptor
 import org.apache.flink.streaming.api.functions.co.RichCoFlatMapFunction
 import org.apache.flink.streaming.api.scala._
 import org.apache.flink.util.Collector

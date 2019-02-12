@@ -1,15 +1,17 @@
 package com.skt.skon.taxi.utils
 
 import com.skt.skon.taxi.utils.TaxiExecutionMode._
+import org.apache.flink.api.common.typeinfo.TypeInformation
 import org.apache.flink.streaming.api.datastream.DataStreamSink
 import org.apache.flink.streaming.api.functions.source.SourceFunction
 import org.apache.flink.streaming.api.scala._
+import org.apache.flink.streaming.api.TimeCharacteristic
 
 case class ExecutionEnvironment(env: StreamExecutionEnvironment, mode: Mode) {
-  def addSource[T](function: SourceFunction[T]): DataStream[T] = {
+  def addSource[T: TypeInformation](function: SourceFunction[T]): DataStream[T] = {
     mode match {
-      case Normal => env.addSource(function)
-      case Test => env.addSource(function)
+      case Normal => env.addSource[T](function)
+      case Test => env.addSource[T](function)
     }
   }
 
@@ -23,7 +25,9 @@ object TaxiExecutionEnvironment extends Enumeration {
 
   def getExecutionEnvironment(mode: Mode = Normal): ExecutionEnvironment = {
     executionMode = mode
-    ExecutionEnvironment(StreamExecutionEnvironment.getExecutionEnvironment, executionMode)
+    val env = StreamExecutionEnvironment.getExecutionEnvironment
+    env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime)
+    ExecutionEnvironment(env, executionMode)
   }
 
   def print[T](out: DataStream[T]): DataStreamSink[T] = {
