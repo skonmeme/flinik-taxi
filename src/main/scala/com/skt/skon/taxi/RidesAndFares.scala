@@ -10,7 +10,6 @@ import org.apache.flink.util.Collector
 
 object RidesAndFares {
   def main(args: Array[String]): Unit = {
-    val maxDelay = 60 // events are out of order by max 60 seconds
     val servingSpeedFactor = 600   // events of 10 minutes are served in 1 second
 
     // set up the streaming execution environment

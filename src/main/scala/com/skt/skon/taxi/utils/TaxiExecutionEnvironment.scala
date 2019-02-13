@@ -2,10 +2,11 @@ package com.skt.skon.taxi.utils
 
 import com.skt.skon.taxi.utils.TaxiExecutionMode._
 import org.apache.flink.api.common.typeinfo.TypeInformation
+import org.apache.flink.runtime.state.filesystem.FsStateBackend
 import org.apache.flink.streaming.api.datastream.DataStreamSink
 import org.apache.flink.streaming.api.functions.source.SourceFunction
 import org.apache.flink.streaming.api.scala._
-import org.apache.flink.streaming.api.TimeCharacteristic
+import org.apache.flink.streaming.api.{CheckpointingMode, TimeCharacteristic}
 
 case class ExecutionEnvironment(env: StreamExecutionEnvironment, mode: Mode) {
   def addSource[T: TypeInformation](function: SourceFunction[T]): DataStream[T] = {
@@ -26,7 +27,22 @@ object TaxiExecutionEnvironment extends Enumeration {
   def getExecutionEnvironment(mode: Mode = Normal): ExecutionEnvironment = {
     executionMode = mode
     val env = StreamExecutionEnvironment.getExecutionEnvironment
+    // Event time
     env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime)
+    // checkpointing per every 10s with Exactly once mode
+    env.enableCheckpointing(10 * 1000L, CheckpointingMode.EXACTLY_ONCE)
+    // make sure 5s of progress happen between checkpoints
+    env.getCheckpointConfig.setMinPauseBetweenCheckpoints(5 * 1000L)
+    // checkpoints have to complete within one minute, or are discarded
+    env.getCheckpointConfig.setCheckpointTimeout(60 * 1000L)
+    // prevent the tasks from failing if an error happens in their checkpointing, the checkpoint will just be declined.
+    env.getCheckpointConfig.setFailOnCheckpointingErrors(false)
+    // allow only one checkpoint to be in progress at the same time
+    env.getCheckpointConfig.setMaxConcurrentCheckpoints(1)
+
+    // State Backend
+    env.setStateBackend(new FsStateBackend("file:///tmp/flink-checkpoints", true))
+
     ExecutionEnvironment(env, executionMode)
   }
 
