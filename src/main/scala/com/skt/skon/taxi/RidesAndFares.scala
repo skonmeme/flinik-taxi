@@ -1,8 +1,12 @@
 package com.skt.skon.taxi
 
+import java.util.Properties
+
 import com.skt.skon.taxi.datatypes.{TaxiFare, TaxiRide}
+import com.skt.skon.taxi.schemas.TaxiSchema
 import com.skt.skon.taxi.sources.{CheckpointedTaxiFareSource, CheckpointedTaxiRideSource}
 import com.skt.skon.taxi.utils.TaxiExecutionEnvironment
+import org.apache.flink.api.common.serialization.SimpleStringSchema
 import org.apache.flink.api.common.state.ValueStateDescriptor
 import org.apache.flink.streaming.api.functions.co.RichCoFlatMapFunction
 import org.apache.flink.streaming.api.scala._
@@ -27,7 +31,10 @@ object RidesAndFares {
       .connect(fareStream)
       .flatMap(new RideFareFlatMap)
 
-    TaxiExecutionEnvironment.print(pairedStream)
+    val producerProperties = new Properties()
+    producerProperties.setProperty("bootstrap.servers", "localhost:9092")
+
+    TaxiExecutionEnvironment.print(pairedStream, "taxi-expiring", new TaxiSchema[(TaxiRide, TaxiFare)], producerProperties)
 
     env.execute("Rides and Fares")
   }
