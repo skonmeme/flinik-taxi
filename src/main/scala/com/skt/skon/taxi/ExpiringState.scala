@@ -1,12 +1,18 @@
 package com.skt.skon.taxi
 
+import java.util.Properties
+
 import com.skt.skon.taxi.datatypes.{TaxiFare, TaxiRide}
+import com.skt.skon.taxi.schemas.TaxiSchema
 import com.skt.skon.taxi.sources.{CheckpointedTaxiFareSource, CheckpointedTaxiRideSource}
 import com.skt.skon.taxi.utils.TaxiExecutionEnvironment
 import org.apache.flink.api.common.state.ValueStateDescriptor
 import org.apache.flink.streaming.api.functions.co.CoProcessFunction
 import org.apache.flink.streaming.api.scala._
 import org.apache.flink.util.Collector
+import org.json4s._
+import org.json4s.native.JsonMethods._
+import org.json4s.native.Serialization._
 
 object ExpiringState {
   val soloRideOutputTag = new OutputTag[TaxiRide]("solo-ride")
@@ -31,7 +37,10 @@ object ExpiringState {
       .connect(fareStream)
       .process(new ParingProcessFunction)
 
-    TaxiExecutionEnvironment.print(connectedStreams.getSideOutput(soloFareOutputTag))
+    val producerProperties = new Properties()
+    producerProperties.setProperty("bootstrap.servers", "localhost:9092")
+
+    TaxiExecutionEnvironment.print[TaxiFare](connectedStreams.getSideOutput(soloFareOutputTag), "taxi-expiring", new TaxiSchema[TaxiFare], producerProperties)
 
     env.execute("Expiring State")
   }
