@@ -23,9 +23,11 @@ repositories {
 }
 
 ext {
-    flinkVersion = "1.7.1"
+    flinkVersion = "1.7.2"
     scalaVersion = "2.12"
     scalaVersionWithMinor = "2.12.8"
+    //scalaVersion = "2.11"
+    //scalaVersionWithMinor = "2.11.12"
 }
 
 dependencies {
@@ -44,7 +46,7 @@ dependencies {
     compile group: 'joda-time', name: 'joda-time', version: '2.10.1'
     compile group: 'org.influxdb', name: 'influxdb-java', version: '2.14'
     compile group: 'org.json4s', name: "json4s-native_$scalaVersion", version: '3.6.4'
-    compile group: 'com.typesafe.scala-logging', name: "scala-logging_$scalaVersion", version: '3.9.2'
+    compile group: 'com.typesafe.scala-logging', name: "scala-logging_$scalaVersion", version: '3.9.0'
 
     testCompile group: 'org.scalatest', name: "scalatest_$scalaVersion", version: '3.0.5'
     testCompile group: 'junit', name: 'junit', version: '4.11'
