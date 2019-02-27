@@ -12,7 +12,7 @@ import org.apache.flink.api.common.functions.FlatMapFunction
 import org.apache.flink.api.common.serialization.SimpleStringSchema
 import org.apache.flink.api.common.state.{MapStateDescriptor, ValueState, ValueStateDescriptor}
 import org.apache.flink.runtime.state.KeyedStateFunction
-import org.apache.flink.streaming.api.functions.co.{BroadcastProcessFunction, KeyedBroadcastProcessFunction}
+import org.apache.flink.streaming.api.functions.co.KeyedBroadcastProcessFunction
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer
 import org.apache.flink.streaming.api.scala._
 import org.apache.flink.util.Collector
