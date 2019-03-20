@@ -36,13 +36,15 @@ object D extends LazyLogging {
       A(1552320945515L, 0, 4),
       A(1552321005515L, 1, 1))
 
-    val oneOverFiveOfWatermarkInterval = 50L
+    val baseOfWatermarkInterval = 1L
+    val watermarkScaleFactor = 50L
+    val injectionScaleFactor = 30L
     val appendingTime = 20L
     val updatingTime = 200L
 
     val env = StreamExecutionEnvironment.getExecutionEnvironment
     env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime)
-    env.getConfig.setAutoWatermarkInterval(oneOverFiveOfWatermarkInterval * 5)
+    env.getConfig.setAutoWatermarkInterval(baseOfWatermarkInterval * watermarkScaleFactor)
     env.setParallelism(1)
 
     val aStream = env
@@ -51,7 +53,7 @@ object D extends LazyLogging {
           val ai = as.iterator
           while (ai.hasNext) {
             ctx.collect(ai.next)
-            Thread.sleep(oneOverFiveOfWatermarkInterval)
+            Thread.sleep(baseOfWatermarkInterval * injectionScaleFactor)
           }
         }
 
