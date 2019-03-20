@@ -7,6 +7,7 @@ import org.apache.flink.api.common.functions.{AggregateFunction, ReduceFunction}
 import org.apache.flink.api.common.state.{ListStateDescriptor, ReducingStateDescriptor}
 import org.apache.flink.streaming.api.TimeCharacteristic
 import org.apache.flink.streaming.api.functions.source.SourceFunction
+import org.apache.flink.streaming.api.functions.timestamps.BoundedOutOfOrdernessTimestampExtractor
 import org.apache.flink.streaming.api.scala._
 import org.apache.flink.streaming.api.scala.function.ProcessWindowFunction
 import org.apache.flink.streaming.api.watermark.Watermark
@@ -18,90 +19,53 @@ import org.apache.flink.util.Collector
 
 import scala.collection.JavaConverters._
 
-/*
-case 1: When there are watermarks among 5->4 (usual case),
-      W(0L),
-      A(1000L, 0, 1),
-      A(2000L, 0, 4),
-      A(3000L, 0, 4),
-      A(4000L, 0, 4),
-      W(5000L),
-      A(6000L, 0, 5),
-      W(6500L),
-      A(7000L, 0, 4),
-      W(10000L),
-      W(20000L), ...)
-
-  result:
-    (fired at,6500)
-    6> (11000,6500,List(1, 4, 4, 4, 5))                   ---> W(6500)
-    (fired at,20000)
-    (12000,20000,List(1, 4, 4, 4, 4, 5)) at Window End    ---> W(20000)
-
-case 2: When there is no watermarks among 5->4 (rare case),
-      W(0L),
-      A(1000L, 0, 1),
-      A(2000L, 0, 4),
-      A(3000L, 0, 4),
-      A(4000L, 0, 4),
-      W(5000L),
-      A(6000L, 0, 5),
-      //W(6500L),
-      A(7000L, 0, 4),
-      W(10000L),
-      W(20000L), ...)
-
-  result:
-    (fired at,10000)
-    6> (12000,10000,List(1, 4, 4, 4, 4, 5))               ---> W(10000)
-    (continued at,20000)                                  ---> W(20000)
- */
-object C extends LazyLogging {
+object D extends LazyLogging {
   case class A(timestamp: Long, key: Long, value: Long)
   case class W(timestamp: Long)
 
   def main(args: Array[String]): Unit = {
     val as = Seq(
-      W(0L),
-      A(1000L, 0, 1),
-      A(2000L, 0, 4),
-      A(3000L, 0, 4),
-      A(4000L, 0, 4),
-      W(5000L),
-      A(6000L, 0, 5),
-      //W(6500L),
-      A(7000L, 0, 4),
-      W(10000L),
-      W(20000L),
-      W(30000L),
-      W(40000L),
-      W(50000L),
-      W(60000L),
-      W(70000L),
-      W(80000L))
+      A(1552319238044L, 0, 1),
+      A(1552319550448L, 0, 4),
+      A(1552319851529L, 0, 4),
+      A(1552320152653L, 0, 4),
+      A(1552320237880L, 0, 2),
+      A(1552320538612L, 0, 4),
+      A(1552320839585L, 0, 4),
+      A(1552320994646L, 0, 5),
+      A(1552320945515L, 0, 4),
+      A(1552321005515L, 1, 1))
+
+    val oneOverFiveOfWatermarkInterval = 50L
+    val appendingTime = 20L
+    val updatingTime = 200L
 
     val env = StreamExecutionEnvironment.getExecutionEnvironment
     env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime)
+    env.getConfig.setAutoWatermarkInterval(oneOverFiveOfWatermarkInterval * 5)
+    env.setParallelism(1)
 
     val aStream = env
       .addSource(new SourceFunction[A] {
         override def run(ctx: SourceFunction.SourceContext[A]): Unit = {
           val ai = as.iterator
           while (ai.hasNext) {
-            ai.next match {
-              case v@A(timestamp, _, _) => ctx.collectWithTimestamp(v, timestamp)
-              case W(timestamp) => ctx.emitWatermark(new Watermark(timestamp))
-            }
+            ctx.collect(ai.next)
+            Thread.sleep(oneOverFiveOfWatermarkInterval)
           }
         }
 
         override def cancel(): Unit = {}
       })
+      .assignTimestampsAndWatermarks(
+        new BoundedOutOfOrdernessTimestampExtractor[A](Time.milliseconds(0)) {
+          override def extractTimestamp(element: A): Long = element.timestamp
+        }
+      )
       .keyBy(_.key)
-      //      .timeWindow(Time.seconds(5))
-      .window(EventTimeSessionWindows.withGap(Time.seconds(5)))
+      .window(EventTimeSessionWindows.withGap(Time.seconds(60 * 60)))
       .trigger(new EarlyResultEventTimeTrigger(_.value == 5))
-      .aggregate(new AG, new WP)
+      .aggregate(new AG(appendingTime, updatingTime), new WP)
       .print
 
     env.execute("EarlyResultEventTimeTrigger")
@@ -121,6 +85,7 @@ object C extends LazyLogging {
     )
 
     override def onElement(element: T, timestamp: Long, window: TimeWindow, ctx: Trigger.TriggerContext): TriggerResult = {
+      Console.println("Get an element at " + ctx.getCurrentWatermark)
       ctx.getPartitionedState(countDesc).add(1)
 
       if (window.maxTimestamp <= ctx.getCurrentWatermark) {
@@ -196,7 +161,7 @@ object C extends LazyLogging {
     override def toString = "EarlyResultEventTimeTrigger()"
   }
 
-  class AG extends AggregateFunction[A, Array[Long], List[Long]] {
+  class AG(appendingTime: Long, updatingTime: Long) extends AggregateFunction[A, Array[Long], List[Long]] {
     override def createAccumulator(): Array[Long] = Array()
 
     override def add(value: A, accumulator: Array[Long]): Array[Long] = {
@@ -204,12 +169,12 @@ object C extends LazyLogging {
       if (accumulator.contains(5)) {
         val i = accumulator.indexOf(5)
         val (h, t) = accumulator.splitAt(i)
-        Thread.sleep(2000L)
-        Console.println(Calendar.getInstance().getTimeInMillis - s + " computing latency")
+        Thread.sleep(updatingTime)
+        Console.println(Calendar.getInstance().getTimeInMillis - s + "ms computing latency at ")
         h ++ Array(value.value) ++ t
       } else {
-        Thread.sleep(300L)
-        Console.println(Calendar.getInstance().getTimeInMillis - s + " computing latency")
+        Thread.sleep(appendingTime)
+        Console.println(Calendar.getInstance().getTimeInMillis - s + "ms computing latency")
         accumulator :+ value.value
       }
     }
@@ -223,10 +188,10 @@ object C extends LazyLogging {
     override def process(key: Long, context: Context, elements: Iterable[List[Long]], out: Collector[(Long, Long, List[Long])]): Unit = {
       val sum = elements.iterator.next
       if (context.window.getEnd <= context.currentWatermark)
-        // at window end
+      // at window end
         Console.println(String.valueOf((context.window.getEnd, context.currentWatermark, sum)) + " at Window End" )
       else
-        // at eventCode.Finish
+      // at eventCode.Finish
         out.collect((context.window.getEnd, context.currentWatermark, sum))
     }
   }
