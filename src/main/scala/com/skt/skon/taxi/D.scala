@@ -10,7 +10,6 @@ import org.apache.flink.streaming.api.functions.source.SourceFunction
 import org.apache.flink.streaming.api.functions.timestamps.BoundedOutOfOrdernessTimestampExtractor
 import org.apache.flink.streaming.api.scala._
 import org.apache.flink.streaming.api.scala.function.ProcessWindowFunction
-import org.apache.flink.streaming.api.watermark.Watermark
 import org.apache.flink.streaming.api.windowing.assigners.EventTimeSessionWindows
 import org.apache.flink.streaming.api.windowing.time.Time
 import org.apache.flink.streaming.api.windowing.triggers.{Trigger, TriggerResult}
@@ -38,9 +37,10 @@ object D extends LazyLogging {
 
     val baseOfWatermarkInterval = 1L
     val watermarkScaleFactor = 50L
-    val injectionScaleFactor = 30L
+    val injectionScaleFactor = 4L
     val appendingTime = 20L
-    val updatingTime = 200L
+    val updatingTime = 20L
+    val outputTime = 30L
 
     val env = StreamExecutionEnvironment.getExecutionEnvironment
     env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime)
@@ -67,7 +67,7 @@ object D extends LazyLogging {
       .keyBy(_.key)
       .window(EventTimeSessionWindows.withGap(Time.seconds(60 * 60)))
       .trigger(new EarlyResultEventTimeTrigger(_.value == 5))
-      .aggregate(new AG(appendingTime, updatingTime), new WP)
+      .aggregate(new AG(appendingTime, updatingTime, outputTime), new WP)
       .print
 
     env.execute("EarlyResultEventTimeTrigger")
@@ -163,7 +163,7 @@ object D extends LazyLogging {
     override def toString = "EarlyResultEventTimeTrigger()"
   }
 
-  class AG(appendingTime: Long, updatingTime: Long) extends AggregateFunction[A, Array[Long], List[Long]] {
+  class AG(appendingTime: Long, updatingTime: Long, outputTime: Long) extends AggregateFunction[A, Array[Long], List[Long]] {
     override def createAccumulator(): Array[Long] = Array()
 
     override def add(value: A, accumulator: Array[Long]): Array[Long] = {
@@ -181,7 +181,10 @@ object D extends LazyLogging {
       }
     }
 
-    override def getResult(accumulator: Array[Long]): List[Long] = accumulator.toList
+    override def getResult(accumulator: Array[Long]): List[Long] = {
+      Thread.sleep(outputTime)
+      accumulator.toList
+    }
 
     override def merge(a: Array[Long], b: Array[Long]): Array[Long] = a ++ b
   }
